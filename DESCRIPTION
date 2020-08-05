@@ -1,7 +1,7 @@
 Package: NetCoMi
 Type: Package
 Title: Network Comparison for Microbiome Data
-Version: 1.0.1
+Version: 1.0.1.9000
 Author: Stefanie Peschel [aut, cre]
 Maintainer: Stefanie Peschel <stefanie.peschel@mail.de>
 Description: NetCoMi offers functions for constructing, analyzing, and comparing 
@@ -28,7 +28,6 @@ Imports:
     foreach,
     gtools,
     igraph,
-    metagenomeSeq,
     propr,
     qgraph,
     SPRING,
@@ -55,7 +54,8 @@ Remotes:
     github::zdk123/SpiecEasi,
     github::GraceYoon/SPRING
 Suggests:
-    testthat
+    testthat,
+    metagenomeSeq
 RdMacros: Rdpack
 Encoding: UTF-8
 LazyData: true
