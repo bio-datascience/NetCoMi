@@ -202,7 +202,7 @@ netAnalyze <- function(net,
                         normDeg = normDeg, normBetw = normBetw,
                         normClose = normClose, normEigen = normEigen)
   }
-
+  
   output <- list(clustering = list(clust1 = props1$clust,
                                    clust2 = props2$clust,
                                    tree1 = props1$tree,
@@ -260,6 +260,7 @@ netAnalyze <- function(net,
                               normCounts2 = x$normCounts2,
                               twoNets = twoNets,
                               groups = groups,
+                              matchDesign = x$matchDesign,
                               assoType = x$assoType,
                               softThreshPower = x$softThreshPower,
                               sampleSize = x$sampleSize),

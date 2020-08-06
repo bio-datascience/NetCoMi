@@ -259,6 +259,7 @@ netCompare <- function(x,
   distNet <- ifelse(assoType == "dissimilarity", TRUE, FALSE)
 
   xgroups <- x$input$groups
+  matchDesign <- x$input$matchDesign
   sampleSize <- x$input$sampleSize
   twoNets <- x$input$twoNets
 
@@ -390,8 +391,7 @@ netCompare <- function(x,
                            }
 
                            if(verbose) progress(p)
-
-
+                           
                            if(!is.null(seed)) set.seed(seeds[p])
 
                            if(!is.null(assoPerm)){
@@ -403,15 +403,55 @@ netCompare <- function(x,
                              assoMat2.tmp <- dissPerm[[2]][[p]]
                              count2.tmp <- count2.tmp <- NULL
                            } else{
+                             
+                             if(is.null(matchDesign)){
 
-                             index <- sample(1:n, n)
-                             if(assoType == "dissimilarity"){
-                               count1.tmp <- xbind[ ,index[1:n1]]
-                               count2.tmp <- xbind[ ,index[(n1+1):n]]
+                               index <- sample(1:n, n)
+                               if(assoType == "dissimilarity"){
+                                 count1.tmp <- xbind[ ,index[1:n1]]
+                                 count2.tmp <- xbind[ ,index[(n1+1):n]]
+                               } else{
+                                 count1.tmp <- xbind[index[1:n1], ]
+                                 count2.tmp <- xbind[index[(n1+1):n], ]
+                               }
+                               
                              } else{
-                               count1.tmp <- xbind[index[1:n1], ]
-                               count2.tmp <- xbind[index[(n1+1):n], ]
+                               if(assoType == "dissimilarity"){
+                                 stop("Matched designs not implemented for dissimilarity measures.")
+                               } else{
+                                 # size of matching sets
+                                 setSize <- sum(matchDesign)
+                                 # number of sets
+                                 nSets <- n / setSize
+                                 # group vector corresponding to matching design
+                                 groups_orig <- rep(c(rep(1, matchDesign[1]), 
+                                                      rep(2, matchDesign[2])), 
+                                                    nSets)
+                                 
+                                 groups_perm <- NULL
+                                 
+                                 for(i in 1:nSets){
+                                   groups_perm <- c(groups_perm, 
+                                                    sample(c(rep(1, matchDesign[1]),
+                                                             rep(2, matchDesign[2]))))
+                                 }
+                                 
+                                 # shuffled groups belonging to original group 1 
+                                 groups_perm1 <- groups_perm[groups_orig == 1]
+                                 
+                                 # shuffled groups belonging to original group 2
+                                 groups_perm2 <- groups_perm[groups_orig == 2]
+                                 
+                                 gr_perm_reorder <- c(groups_perm1, groups_perm2)
+                                 #names(gr_perm_reorder) <- c(rep(1, n1), rep(2, n2))
+                                 
+                                 count1.tmp <- xbind[which(gr_perm_reorder == 1), ]
+                                 count2.tmp <- xbind[which(gr_perm_reorder == 2), ]
+                               }
+
                              }
+
+
 
                              if(x$paramsNetConstruct$sparsMethod == "softThreshold"){
                                if(length(softThreshPower) < 2){

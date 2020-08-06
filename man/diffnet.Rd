@@ -20,7 +20,8 @@ diffnet(
   lfdrThresh = 0.2,
   trueNullMethod = "convest",
   pvalsVec = NULL,
-  assoPerm = NULL
+  assoPerm = NULL,
+  storePermCounts = FALSE
 )
 }
 \arguments{
@@ -98,6 +99,9 @@ Each entry must contain association matrices for \code{"nPerm"}
 permutations. This can be either the \code{"assoPerm"} value as part of the
 output returned from \code{diffnet} or from \code{\link{netCompare}}. See
 the example.}
+
+\item{storePermCounts}{logical; If \code{TRUE}, the permuted count matrices
+are returned.}
 }
 \value{
 The function returns an object of class \code{diffnet}. Depending on

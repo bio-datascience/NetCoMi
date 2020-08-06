@@ -111,6 +111,15 @@
 #' @param group optional binary vector used or splitting the data into two
 #'   groups. If \code{group} is \code{NULL} (default), a single network is
 #'   constructed. See details.
+#' @param matchDesign Numeric vector with two elements specifying an optional 
+#'   matched-set design, which is used for the permutation tests in 
+#'   \code{\link{netCompare}} and \code{\link{diffnet}}. \code{c(1,1)} 
+#'   corresponds to a matched-pair design. A 1:2 matching, for instance, is 
+#'   defined by \code{c(1,2)}, which means that the first sample of group 1 is 
+#'   matched to the first two samples of group 2 and so on. 
+#'   The appropriate order of samples must be ensured. If 
+#'   \code{NULL}, the group memberships are shuffled randomly while group sizes
+#'   identical to the original data set are ensured. 
 #' @param measure character specifying the method used for either computing the
 #'   associations between taxa or dissimilarities between subjects.
 #'   Ignored if \code{data} is not a count matrix (if \code{dataType} is not set
@@ -366,6 +375,7 @@ netConstruct <- function(data,
                          data2 = NULL,
                          dataType = "counts",
                          group = NULL,
+                         matchDesign = NULL,
                          measure = "spieceasi",
                          measurePar = NULL,
                          filtTax = "none",
@@ -467,6 +477,9 @@ netConstruct <- function(data,
   filtSamp <- match.arg(filtSamp,
                         choices = c("totalReads", "numbTaxa", "highestFreq",
                                     "none"), several.ok = TRUE)
+  if(filtSamp != "none" && !is.null(matchDesign)){
+    stop("Filtering samples is not possible if matched-set design is used.")
+  }
 
   sparsMethod <- match.arg(sparsMethod,
                            choices = c("none", "t-test", "bootstrap",
@@ -1111,6 +1124,7 @@ netConstruct <- function(data,
   output$normCounts1 <- count1_norm
   output$normCounts2 <- count2_norm
   output$groups <- groups
+  output$matchDesign <- matchDesign
   output$sampleSize <- sampleSize
   output$softThreshPower <- list( power1 = power1, power2 = power2) # calculated power
   output$assoType <- assoType

@@ -75,6 +75,8 @@
 #'   permutations. This can be either the \code{"assoPerm"} value as part of the
 #'   output returned from \code{diffnet} or from \code{\link{netCompare}}. See
 #'   the example.
+#' @param storePermCounts logical; If \code{TRUE}, the permuted count matrices
+#'   are returned.
 #' @return The function returns an object of class \code{diffnet}. Depending on
 #'   the performed test method, the output contains the following
 #'   elements:\cr\cr
@@ -166,7 +168,7 @@ diffnet <- function(x, diffMethod = "permute", discordThresh = 0.8,
                     cores = 1L, verbose = TRUE, logFile = NULL,
                     seed = NULL, alpha = 0.05, adjust = "lfdr",
                     lfdrThresh = 0.2, trueNullMethod = "convest",
-                    pvalsVec = NULL, assoPerm = NULL){
+                    pvalsVec = NULL, assoPerm = NULL, storePermCounts = FALSE){
 
   stopifnot(class(x) == "microNet")
 
@@ -259,6 +261,8 @@ diffnet <- function(x, diffMethod = "permute", discordThresh = 0.8,
                    diffMat = diffMat, classMat = classMat, diffProbs = diffProbs)
 
   } else if(diffMethod == "permute"){
+    
+    matchDesign <- x$matchDesign
 
     pvalsVecInput <- pvalsVec
 
@@ -282,14 +286,21 @@ diffnet <- function(x, diffMethod = "permute", discordThresh = 0.8,
                                        adjust = adjust, adjust2 = "none",
                                        alpha = alpha, lfdrThresh = lfdrThresh,
                                        verbose = verbose, nPerm = nPerm,
+                                       matchDesign = matchDesign,
                                        cores = cores, logFile = logFile,
-                                       seed = seed, assoPerm = assoPerm)
+                                       seed = seed, assoPerm = assoPerm,
+                                       storePermCounts = storePermCounts)
 
       pvalsVec <- permResult$pvalsVec
       pAdjust <- permResult$pAdjustVec
 
       assoPerm1 <- permResult$assoPerm1
       assoPerm2 <- permResult$assoPerm2
+      
+      if(storePermCounts){
+        countsPerm1 <- permResult$countsPerm1
+        countsPerm2 <- permResult$countsPerm2
+      }
 
       nExceedsVec <- permResult$nExceedsVec
 
@@ -330,6 +341,12 @@ diffnet <- function(x, diffMethod = "permute", discordThresh = 0.8,
     output[["diffMat"]] <- diffMat
 
     output[["assoPerm"]] <- list(assoPerm1 = assoPerm1, assoPerm2 = assoPerm2)
+    
+    if(storePermCounts){
+      output[["countsPerm"]] <- list(countsPerm1 = countsPerm1, 
+                                     countsPerm2 = countsPerm2)
+    }
+
 
   }else{ #Fisher's z-test
 

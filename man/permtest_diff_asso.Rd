@@ -20,11 +20,13 @@ permtest_diff_asso(
   alpha = 0.05,
   lfdrThresh = 0.2,
   nPerm = 1000,
+  matchDesign = NULL,
   cores = 4,
   verbose = TRUE,
   logFile = "log.txt",
   seed = NULL,
-  assoPerm = NULL
+  assoPerm = NULL,
+  storePermCounts = FALSE
 )
 }
 \arguments{

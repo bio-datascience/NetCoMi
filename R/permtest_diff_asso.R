@@ -63,10 +63,11 @@ permtest_diff_asso <- function(countMat1, countMat2, assoMat1, assoMat2,
                            pvalsMethod = "pseudo",
                            adjust = "lfdr", adjust2 = "holm",
                            trueNullMethod = "convest", alpha = 0.05,
-                           lfdrThresh = 0.2, nPerm = 1000, cores = 4,
+                           lfdrThresh = 0.2, nPerm = 1000,
+                           matchDesign = NULL, cores = 4,
                            verbose = TRUE, logFile = "log.txt",
-                           seed = NULL, assoPerm = NULL){
-
+                           seed = NULL, assoPerm = NULL, storePermCounts = FALSE){
+  
   if(!is.null(seed)){
     set.seed(seed)
     seeds <- sample.int(1e8, size = nPerm)
@@ -127,10 +128,45 @@ permtest_diff_asso <- function(countMat1, countMat2, assoMat1, assoMat2,
                       if(verbose) progress(p)
 
                       if(!is.null(seed)) set.seed(seeds[p])
+                      
+                      if(is.null(matchDesign)){
+                        index <- sample(1:n, n)
+                        countMat1.tmp <- counts[index[1:n1], ]
+                        countMat2.tmp <- counts[index[(n1+1):n], ]
+                        
+                      } else{
+                        
+                        # size of matching sets
+                        setSize <- sum(matchDesign)
+                        # number of sets
+                        nSets <- n / setSize
+                        # group vector corresponding to matching design
+                        groups_orig <- rep(c(rep(1, matchDesign[1]), 
+                                             rep(2, matchDesign[2])), 
+                                           nSets)
+                        
+                        groups_perm <- NULL
+                        
+                        for(i in 1:nSets){
+                          groups_perm <- c(groups_perm, 
+                                           sample(c(rep(1, matchDesign[1]),
+                                                    rep(2, matchDesign[2]))))
+                        }
+                        
+                        # shuffled groups belonging to original group 1 
+                        groups_perm1 <- groups_perm[groups_orig == 1]
+                        
+                        # shuffled groups belonging to original group 2
+                        groups_perm2 <- groups_perm[groups_orig == 2]
+                        
+                        gr_perm_reorder <- c(groups_perm1, groups_perm2)
+                        #names(gr_perm_reorder) <- c(rep(1, n1), rep(2, n2))
+                        
+                        countMat1.tmp <- counts[which(gr_perm_reorder == 1), ]
+                        countMat2.tmp <- counts[which(gr_perm_reorder == 2), ]
+                      }
 
-                      index <- sample(1:n, n)
-                      countMat1.tmp <- counts[index[1:n1], ]
-                      countMat2.tmp <- counts[index[(n1+1):n], ]
+
 
                       if(!is.null(assoPerm)){
                         assoMat1.tmp <- assoPerm[[1]][[p]]
@@ -151,6 +187,11 @@ permtest_diff_asso <- function(countMat1, countMat2, assoMat1, assoMat2,
 
                       returnlist[["assoMat1"]] <- assoMat1.tmp
                       returnlist[["assoMat2"]] <- assoMat2.tmp
+                      
+                      if(storePermCounts){
+                        returnlist[["countMat1"]] <- countMat1.tmp
+                        returnlist[["countMat2"]] <- countMat2.tmp
+                      }
 
                       # teststatistics for simulated data
                       if("connect.pairs" %in% method){
@@ -287,6 +328,17 @@ permtest_diff_asso <- function(countMat1, countMat2, assoMat1, assoMat2,
 
   output[["assoPerm1"]] <- assoPerm1
   output[["assoPerm2"]] <- assoPerm2
+  
+  if(storePermCounts){
+    permCounts1 <- permCounts2 <- list()
+    for(i in 1:nPerm){
+      permCounts1[[i]] <- result[[i]]$countMat1
+      permCounts2[[i]] <- result[[i]]$countMat2
+    }
+    
+    output[["countsPerm1"]] <- permCounts1
+    output[["countsPerm2"]] <- permCounts2
+  }
 
   return(output)
 }
