@@ -91,7 +91,12 @@ calc_diff_props <- function(adja1, adja2, dissMat1, dissMat2, weighted,
   # adjusted Rand index for measuring similarity between two clusterings
   clust1 <- props1$clust
   clust2 <- props2$clust
-  randInd <- c(value = randIndex(table(clust1, clust2), adjust = TRUE), pval = NA)
+  if(isempty1 || isempty2){
+    randInd <- NA
+  } else{
+    randInd <- c(value = randIndex(table(clust1, clust2), adjust = TRUE), pval = NA)
+  }
+
 
   # significance test for Rand index
   if(testRand){

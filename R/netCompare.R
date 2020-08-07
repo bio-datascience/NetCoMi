@@ -58,6 +58,8 @@
 #'   \code{\link{netCompare}}. See the example.
 #' @param dissPerm usage analog to \code{assoPerm} if a dissimilarity measure
 #'   has been used for network construction.
+#' @param storePermCounts logical; If \code{TRUE}, the permuted count matrices
+#'   are returned.
 #' @details
 #'   \strong{Permutation procedure:}\cr
 #'   Used for testing centrality measures and global network properties for
@@ -214,7 +216,8 @@ netCompare <- function(x,
                        logFile = NULL,
                        seed = NULL, verbose = TRUE,
                        storeAssoPerm = TRUE,
-                       assoPerm = NULL, dissPerm = NULL){
+                       assoPerm = NULL, dissPerm = NULL,
+                       storePermCounts = FALSE){
 
   stopifnot(class(x) =="microNetProps")
   stopifnot(is.logical(permTest))
@@ -291,12 +294,11 @@ netCompare <- function(x,
                 xgroups[2], "' is empty."))
   }
 
-
-  if(!is.null(seed)) set.seed(seed)
-
-
   #---------------------------------------------------------------------------
   # calculate and compare network properties
+  
+  if(!is.null(seed)) set.seed(seed)
+  
   if(permTest & verbose) message("Calculate network properties ... ",
                                  appendLF = FALSE)
 
@@ -317,14 +319,10 @@ netCompare <- function(x,
   # generate teststatistics for permutated data
 
   if(permTest){
+    
+    if(!is.null(seed)) set.seed(seed)
 
     if(verbose) message("Execute permutation tests ... ")
-
-    if(!is.null(seed)){
-      seeds <- sample.int(1e8, size = nPerm)
-    } else{
-      seeds <- NULL
-    }
 
     if(assoType == "dissimilarity"){
       n1 <- ncol(count1)
@@ -336,6 +334,80 @@ netCompare <- function(x,
       n2 <- nrow(count2)
       n <- n1 + n2
       xbind <- rbind(count1, count2)
+    }
+    
+    #---------------------------------------
+    if(is.null(matchDesign)){
+      
+      groupvec <- c(rep(1, n1), rep(2, n2))
+      
+      perm_group_mat <- t(sapply(1:(nPerm + 10), function(x) sample(groupvec)))
+      
+      perm_group_mat <- unique.matrix(perm_group_mat)
+      
+      while (nrow(perm_group_mat) < nPerm) {
+        perm_group_mat <- rbind(perm_group_mat, sample(groupvec))
+        perm_group_mat <- unique.matrix(perm_group_mat)
+      }
+      
+    } else{
+      # size of matching sets
+      set_size <- sum(matchDesign)
+      # number of sets
+      n_sets <- n / set_size
+      # group vector corresponding to matching design
+      groups_orig <- rep(c(rep(1, matchDesign[1]), 
+                           rep(2, matchDesign[2])), 
+                         n_sets)
+      
+      perm_func <- function(x){
+        groups_perm <- NULL
+        
+        for(i in 1:n_sets){
+          groups_perm <- c(groups_perm, 
+                           sample(c(rep(1, matchDesign[1]),
+                                    rep(2, matchDesign[2]))))
+        }
+        
+        # shuffled groups belonging to original group 1 
+        groups_perm1 <- groups_perm[groups_orig == 1]
+        
+        # shuffled groups belonging to original group 2
+        groups_perm2 <- groups_perm[groups_orig == 2]
+        
+        c(groups_perm1, groups_perm2)
+      }
+      
+      perm_group_mat <- t(sapply(1:(nPerm + 10), perm_func))
+      
+      perm_group_mat <- unique.matrix(perm_group_mat)
+      
+      while (nrow(perm_group_mat) < nPerm) {
+        groups_perm <- NULL
+        
+        for(i in 1:n_sets){
+          groups_perm <- c(groups_perm, 
+                           sample(c(rep(1, matchDesign[1]),
+                                    rep(2, matchDesign[2]))))
+        }
+        
+        # shuffled groups belonging to original group 1 
+        groups_perm1 <- groups_perm[groups_orig == 1]
+        
+        # shuffled groups belonging to original group 2
+        groups_perm2 <- groups_perm[groups_orig == 2]
+        
+        perm_group_mat <- rbind(perm_group_mat, c(groups_perm1, groups_perm2))
+        perm_group_mat <- unique.matrix(perm_group_mat)
+      }
+      
+    }
+    #---------------------------------------
+    
+    if(!is.null(seed)){
+      seeds <- sample.int(1e8, size = nPerm)
+    } else{
+      seeds <- NULL
     }
 
     if(cores > 1){
@@ -374,7 +446,7 @@ netCompare <- function(x,
                                                     "robCompositions",
                                                     "propr",
                                                     "zCompositions",
-                                                    "metagenomeSeq",
+                                                    #"metagenomeSeq",
                                                     "DESeq2",
                                                     "compositions"),
                          .export = c("calc_association", "cclasso", "gcoda",
@@ -384,73 +456,35 @@ netCompare <- function(x,
                                      "calc_props", "calc_diff_props",
                                      "calc_jaccard"),
                          .options.snow = opts) %do_or_dopar% {
-
+                           
                            if(!is.null(logFile)){
                              cat(paste("iteration", p,"\n"),
                                  file=logFile, append=TRUE)
                            }
 
                            if(verbose) progress(p)
-                           
+
                            if(!is.null(seed)) set.seed(seeds[p])
 
                            if(!is.null(assoPerm)){
                              assoMat1.tmp <- assoPerm[[1]][[p]]
                              assoMat2.tmp <- assoPerm[[2]][[p]]
                              count1.tmp <- count2.tmp <- NULL
+
                            } else if(!is.null(dissPerm)){
                              assoMat1.tmp <- dissPerm[[1]][[p]]
                              assoMat2.tmp <- dissPerm[[2]][[p]]
                              count2.tmp <- count2.tmp <- NULL
+
                            } else{
                              
-                             if(is.null(matchDesign)){
-
-                               index <- sample(1:n, n)
-                               if(assoType == "dissimilarity"){
-                                 count1.tmp <- xbind[ ,index[1:n1]]
-                                 count2.tmp <- xbind[ ,index[(n1+1):n]]
-                               } else{
-                                 count1.tmp <- xbind[index[1:n1], ]
-                                 count2.tmp <- xbind[index[(n1+1):n], ]
-                               }
-                               
+                             if(assoType == "dissimilarity"){
+                               count1.tmp <- xbind[ ,which(perm_group_mat[p, ] == 1)]
+                               count2.tmp <- xbind[ ,which(perm_group_mat[p, ] == 2)]
                              } else{
-                               if(assoType == "dissimilarity"){
-                                 stop("Matched designs not implemented for dissimilarity measures.")
-                               } else{
-                                 # size of matching sets
-                                 setSize <- sum(matchDesign)
-                                 # number of sets
-                                 nSets <- n / setSize
-                                 # group vector corresponding to matching design
-                                 groups_orig <- rep(c(rep(1, matchDesign[1]), 
-                                                      rep(2, matchDesign[2])), 
-                                                    nSets)
-                                 
-                                 groups_perm <- NULL
-                                 
-                                 for(i in 1:nSets){
-                                   groups_perm <- c(groups_perm, 
-                                                    sample(c(rep(1, matchDesign[1]),
-                                                             rep(2, matchDesign[2]))))
-                                 }
-                                 
-                                 # shuffled groups belonging to original group 1 
-                                 groups_perm1 <- groups_perm[groups_orig == 1]
-                                 
-                                 # shuffled groups belonging to original group 2
-                                 groups_perm2 <- groups_perm[groups_orig == 2]
-                                 
-                                 gr_perm_reorder <- c(groups_perm1, groups_perm2)
-                                 #names(gr_perm_reorder) <- c(rep(1, n1), rep(2, n2))
-                                 
-                                 count1.tmp <- xbind[which(gr_perm_reorder == 1), ]
-                                 count2.tmp <- xbind[which(gr_perm_reorder == 2), ]
-                               }
-
+                               count1.tmp <- xbind[which(perm_group_mat[p, ] == 1), ]
+                               count2.tmp <- xbind[which(perm_group_mat[p, ] == 2), ]
                              }
-
 
 
                              if(x$paramsNetConstruct$sparsMethod == "softThreshold"){
@@ -608,6 +642,11 @@ netCompare <- function(x,
                                out$assoEst2 <- assoEst2.tmp
                              }
                            }
+
+                           if(storePermCounts){
+                             out$permCounts1 <- count1.tmp
+                             out$permCounts2 <- count2.tmp
+                           }
                            out
                          }
 
@@ -664,6 +703,19 @@ netCompare <- function(x,
     } else{
       assoEstPerm1 <- assoEstPerm2 <- NULL
       dissEstPerm1 <- dissEstPerm2 <- NULL
+    }
+    
+    if(storePermCounts){
+      countsPerm1 <- countsPerm2 <- list()
+      
+      for(i in 1:nPerm){
+        countsPerm1[[i]] <- propsPerm[[i]]$permCounts1
+        countsPerm2[[i]] <- propsPerm[[i]]$permCounts2
+      }
+
+    } else{
+      countsPerm1 <- NULL
+      countsPerm2 <- NULL
     }
 
     pvalPath <- (sum(results[,1] >= props$diffPath) + 1) / (nPerm + 1)
@@ -751,6 +803,8 @@ netCompare <- function(x,
                                    assoEstPerm2 = assoEstPerm2),
                    dissPerm = list(dissEstPerm1 = dissEstPerm1,
                                    dissEstPerm2 = dissEstPerm2),
+                   countsPerm = list(countsPerm1 = countsPerm1, 
+                                     countsPerm2 = countsPerm2),
                    groups = list(group1 = xgroups[1], group2 = xgroups[2]),
                    call = match.call())
   } else{

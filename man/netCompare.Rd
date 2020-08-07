@@ -19,7 +19,8 @@ netCompare(
   verbose = TRUE,
   storeAssoPerm = TRUE,
   assoPerm = NULL,
-  dissPerm = NULL
+  dissPerm = NULL,
+  storePermCounts = FALSE
 )
 }
 \arguments{
@@ -92,6 +93,9 @@ output either returned from \code{diffnet} or from
 
 \item{dissPerm}{usage analog to \code{assoPerm} if a dissimilarity measure
 has been used for network construction.}
+
+\item{storePermCounts}{logical; If \code{TRUE}, the permuted count matrices
+are returned.}
 }
 \value{
 Returned is an object of class \code{microNetComp}. Important

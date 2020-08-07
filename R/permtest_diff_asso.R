@@ -67,10 +67,9 @@ permtest_diff_asso <- function(countMat1, countMat2, assoMat1, assoMat2,
                            matchDesign = NULL, cores = 4,
                            verbose = TRUE, logFile = "log.txt",
                            seed = NULL, assoPerm = NULL, storePermCounts = FALSE){
-  
+
   if(!is.null(seed)){
     set.seed(seed)
-    seeds <- sample.int(1e8, size = nPerm)
   }
 
   nVars <- ncol(assoMat1)
@@ -79,9 +78,83 @@ permtest_diff_asso <- function(countMat1, countMat2, assoMat1, assoMat2,
   n <- n1 + n2
   counts <- rbind(countMat1, countMat2)
   p <- ncol(assoMat1)
+  
+  #_____________________________________________________
+  if(is.null(matchDesign)){
+    
+    groupvec <- c(rep(1, n1), rep(2, n2))
+    
+    perm_group_mat <- t(sapply(1:(nPerm + 10), function(x) sample(groupvec)))
+    
+    perm_group_mat <- unique.matrix(perm_group_mat)
+    
+    while (nrow(perm_group_mat) < nPerm) {
+      perm_group_mat <- rbind(perm_group_mat, sample(groupvec))
+      perm_group_mat <- unique.matrix(perm_group_mat)
+    }
+    
+  } else{
+
+    # size of matching sets
+    set_size <- sum(matchDesign)
+    # number of sets
+    n_sets <- n / set_size
+    # group vector corresponding to matching design
+    groups_orig <- rep(c(rep(1, matchDesign[1]), 
+                         rep(2, matchDesign[2])), 
+                       n_sets)
+    
+    perm_func <- function(x){
+      groups_perm <- NULL
+      
+      for(i in 1:n_sets){
+        groups_perm <- c(groups_perm, 
+                         sample(c(rep(1, matchDesign[1]),
+                                  rep(2, matchDesign[2]))))
+      }
+      
+      # shuffled groups belonging to original group 1 
+      groups_perm1 <- groups_perm[groups_orig == 1]
+      
+      # shuffled groups belonging to original group 2
+      groups_perm2 <- groups_perm[groups_orig == 2]
+      
+      c(groups_perm1, groups_perm2)
+    }
+    
+    perm_group_mat <- t(sapply(1:(nPerm + 10), perm_func))
+    
+    perm_group_mat <- unique.matrix(perm_group_mat)
+    
+    while (nrow(perm_group_mat) < nPerm) {
+      groups_perm <- NULL
+      
+      for(i in 1:n_sets){
+        groups_perm <- c(groups_perm, 
+                         sample(c(rep(1, matchDesign[1]),
+                                  rep(2, matchDesign[2]))))
+      }
+      
+      # shuffled groups belonging to original group 1 
+      groups_perm1 <- groups_perm[groups_orig == 1]
+      
+      # shuffled groups belonging to original group 2
+      groups_perm2 <- groups_perm[groups_orig == 2]
+      
+      perm_group_mat <- rbind(perm_group_mat, c(groups_perm1, groups_perm2))
+      perm_group_mat <- unique.matrix(perm_group_mat)
+    }
+    
+    
+  }
 
   #_____________________________________________________
   # generate teststatistics for permutated data
+  
+  if(!is.null(seed)){
+    seeds <- sample.int(1e8, size = nPerm)
+  }
+  
   if(verbose) message("Execute permutation tests ... ")
 
   if(cores > 1){
@@ -113,14 +186,13 @@ permtest_diff_asso <- function(countMat1, countMat2, assoMat1, assoMat2,
                                                "robCompositions",
                                                "propr",
                                                "zCompositions",
-                                               "metagenomeSeq",
                                                "DESeq2",
                                                "compositions"),
                     .export = c("calc_association", "cclasso", "gcoda",
                                 "diff_connect_pairs", "diff_connect_variables",
                                 "diff_connect_network", "get_vec_names"),
                     .options.snow = opts) %do_or_dopar% {
-
+                      
                       if(!is.null(logFile)){
                         cat(paste("Iteration", p,"\n"),
                             file=logFile, append=TRUE)
@@ -129,44 +201,8 @@ permtest_diff_asso <- function(countMat1, countMat2, assoMat1, assoMat2,
 
                       if(!is.null(seed)) set.seed(seeds[p])
                       
-                      if(is.null(matchDesign)){
-                        index <- sample(1:n, n)
-                        countMat1.tmp <- counts[index[1:n1], ]
-                        countMat2.tmp <- counts[index[(n1+1):n], ]
-                        
-                      } else{
-                        
-                        # size of matching sets
-                        setSize <- sum(matchDesign)
-                        # number of sets
-                        nSets <- n / setSize
-                        # group vector corresponding to matching design
-                        groups_orig <- rep(c(rep(1, matchDesign[1]), 
-                                             rep(2, matchDesign[2])), 
-                                           nSets)
-                        
-                        groups_perm <- NULL
-                        
-                        for(i in 1:nSets){
-                          groups_perm <- c(groups_perm, 
-                                           sample(c(rep(1, matchDesign[1]),
-                                                    rep(2, matchDesign[2]))))
-                        }
-                        
-                        # shuffled groups belonging to original group 1 
-                        groups_perm1 <- groups_perm[groups_orig == 1]
-                        
-                        # shuffled groups belonging to original group 2
-                        groups_perm2 <- groups_perm[groups_orig == 2]
-                        
-                        gr_perm_reorder <- c(groups_perm1, groups_perm2)
-                        #names(gr_perm_reorder) <- c(rep(1, n1), rep(2, n2))
-                        
-                        countMat1.tmp <- counts[which(gr_perm_reorder == 1), ]
-                        countMat2.tmp <- counts[which(gr_perm_reorder == 2), ]
-                      }
-
-
+                      countMat1.tmp <- counts[which(perm_group_mat[p, ] == 1), ]
+                      countMat2.tmp <- counts[which(perm_group_mat[p, ] == 2), ]
 
                       if(!is.null(assoPerm)){
                         assoMat1.tmp <- assoPerm[[1]][[p]]
